@@ -1,0 +1,75 @@
+#ifndef FDCB_H
+#define FDCB_H
+
+#ifdef __cplusplus
+#define BEGIN_C extern "C" {
+#define END_C }
+#else
+#define BEGIN_C
+#define END_C
+#endif
+
+#include <sys/types.h>
+
+BEGIN_C
+
+typedef ssize_t (*fdcb_callback)(void* user_context, void const* buffer, size_t count);
+
+struct fdcb_context;
+
+struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* user_context);
+
+void fdcb_flush(struct fdcb_context*);
+
+void fdcb_free_context(struct fdcb_context*);
+
+END_C
+
+#ifdef __cplusplus
+
+#include <memory>
+#include <span>
+#include <cstddef>
+
+namespace fdcb
+{
+	struct fdcb_context_deleter
+	{
+		void operator()(fdcb_context* ptr) const
+		{
+			fdcb_free_context(ptr);
+		}
+	};
+
+	using context_handle = std::unique_ptr<fdcb_context, fdcb_context_deleter>;
+
+	template<class Writer>
+	requires(!std::is_pointer_v<Writer> && !std::is_reference_v<Writer>)
+	class context
+	{
+	private:
+		static ssize_t call_write(void* user_context, void const* buffer, size_t count)
+		{
+			auto bytes = std::span{reinterpret_cast<std::byte const*>(buffer), count};
+			return write(static_cast<Writer*>(user_context), bytes);
+		}
+
+	public:
+		explicit context(int fd, Writer&& cb):
+			m_cb{std::make_unique<Writer>(std::move(cb))},
+			m_context{fdcb_create_context(fd, call_write, m_cb.get())}
+		{}
+
+		void flush()
+		{
+			fdcb_flush(m_context.get());
+		}
+
+	private:
+		std::unique_ptr<Writer> m_cb;  // Use a unique_ptr to avoid issue of moving contexts
+		context_handle m_context;
+	};
+}
+#endif
+
+#endif
