@@ -159,9 +159,6 @@ public:
 		m_fd_swap.reset();
 	}
 
-	void flush()
-	{}
-
 private:
 	fdcb::pipe m_pipe;
 	fdcb::fd_swap m_fd_swap;
@@ -184,11 +181,6 @@ fdcb_context* fdcb_create_context(int fd, void* user_context, fdcb_callback call
 char const* fdcb_get_error_message()
 {
 	return fdcb::error_message.c_str();
-}
-
-void fdcb_flush(struct fdcb_context* ctxt)
-{
-	ctxt->flush();
 }
 
 void fdcb_free_context(fdcb_context* ctxt)

@@ -21,8 +21,6 @@ struct fdcb_context;
 
 struct fdcb_context* fdcb_create_context(int fd, void* user_context, fdcb_callback callback);
 
-void fdcb_flush(struct fdcb_context*);
-
 void fdcb_free_context(struct fdcb_context*);
 
 char const* fdcb_get_error_message();
@@ -67,11 +65,6 @@ namespace fdcb
 			{
 				throw std::runtime_error{fdcb_get_error_message()};
 			}
-		}
-
-		void flush()
-		{
-			fdcb_flush(m_context.get());
 		}
 
 	private:
