@@ -2,13 +2,17 @@
 
 #include "./fdcb.h"
 
+#include <thread>
+
 struct dummy
 {
 };
 
-ssize_t write(dummy, std::span<std::byte const>)
+size_t write(dummy, std::span<std::byte const> buffer)
 {
-	return -1;
+	write(STDERR_FILENO, ">>> ", 4);
+	write(STDERR_FILENO, std::data(buffer), std::size(buffer));
+	return std::size(buffer);
 }
 
 int main()
@@ -16,10 +20,12 @@ int main()
 	try
 	{
 		fdcb::context wrapper{STDOUT_FILENO, dummy{}};
+		puts("Hello, World");
+		fflush(stdout);
 	}
 	catch(std::exception const& e)
 	{
 		fprintf(stderr, "%s\n", e.what());
 	}
-	puts("Hello, World");
+	puts("Hello, World (no longer redirected)");
 }

@@ -15,11 +15,11 @@
 
 BEGIN_C
 
-typedef ssize_t (*fdcb_callback)(void* user_context, void const* buffer, size_t count);
+typedef size_t (*fdcb_callback)(void* user_context, void const* buffer, size_t count);
 
 struct fdcb_context;
 
-struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* user_context);
+struct fdcb_context* fdcb_create_context(int fd, void* user_context, fdcb_callback callback);
 
 void fdcb_flush(struct fdcb_context*);
 
@@ -52,7 +52,7 @@ namespace fdcb
 	class context
 	{
 	private:
-		static ssize_t call_write(void* user_context, void const* buffer, size_t count)
+		static size_t call_write(void* user_context, void const* buffer, size_t count)
 		{
 			auto bytes = std::span{reinterpret_cast<std::byte const*>(buffer), count};
 			return write(*static_cast<Writer*>(user_context), bytes);
@@ -61,7 +61,7 @@ namespace fdcb
 	public:
 		explicit context(int fd, Writer&& cb):
 			m_cb{std::make_unique<Writer>(std::move(cb))},
-			m_context{fdcb_create_context(fd, call_write, m_cb.get())}
+			m_context{fdcb_create_context(fd, m_cb.get(), call_write)}
 		{
 			if(m_context == nullptr)
 			{
