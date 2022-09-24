@@ -7,6 +7,8 @@
 #include <thread>
 #include <cstring>
 
+namespace fdcb
+{
 namespace
 {
 	struct fd_wrapper
@@ -41,35 +43,74 @@ namespace
 	using fd_handle = std::unique_ptr<int, fd_deleter>;
 
 	thread_local std::string error_message;
+
+	class fd_swap
+	{
+	public:
+		fd_swap():m_replaced_fd{-1}{}
+		fd_swap(fd_swap&&) = delete;
+		fd_swap& operator=(fd_swap&&) = delete;
+
+		explicit fd_swap(int replacing_fd, int fd_to_replace):
+			m_replaced_fd{fd_to_replace}
+		{
+			auto const replaced_fd_copy = dup(fd_to_replace);
+			if(replaced_fd_copy == -1)
+			{
+				auto const errstring = strerror(errno);
+				throw std::runtime_error{std::string{"fdcb: Failed to dup: "}.append(errstring)};
+			}
+			m_replaced_fd_copy = fd_handle{replaced_fd_copy};
+
+			if(dup2(replacing_fd, replaced_fd_copy) == -1)
+			{
+				auto const errstring = strerror(errno);
+				throw std::runtime_error{std::string{"fdcb: Failed to dup: "}.append(errstring)};
+			}
+		}
+
+		~fd_swap()
+		{
+			dup2(m_replaced_fd_copy.get(), m_replaced_fd);
+		}
+
+	private:
+		int m_replaced_fd;
+		fd_handle m_replaced_fd_copy;
+	};
+
+	class pipe
+	{
+	public:
+		pipe()
+		{
+			int fds[2];
+			if(::pipe(fds) == -1)
+			{
+				auto const errstring = strerror(errno);
+				throw std::runtime_error{std::string{"fdcb: Failed to create pipe: "}.append(errstring)};
+			}
+			m_read_fd = fd_handle{fds[0]};
+			m_write_fd = fd_handle{fds[1]};
+		}
+
+		auto input() const { return m_write_fd.get(); }
+
+		auto output() const { return m_read_fd.get(); }
+
+	private:
+		fd_handle m_read_fd;
+		fd_handle m_write_fd;
+	};
+}
 }
 
 struct fdcb_context
 {
 public:
-	explicit fdcb_context(int fd, fdcb_callback callback, void* user_context)
+	explicit fdcb_context(int fd, fdcb_callback callback, void* user_context):
+	 m_fd_swap{m_pipe.input(), fd}
 	{
-		int fds[2];
-		if(pipe(fds) == -1)
-		{
-			auto const errstring = strerror(errno);
-			throw std::runtime_error{std::string{"fdcb: Failed to create pipe: "}.append(errstring)};
-		}
-		m_read_fd = fd_handle{fds[0]};
-		m_write_fd = fd_handle{fds[1]};
-
-		auto old_fd = dup(fd);
-		if(old_fd == -1)
-		{
-			auto const errstring = strerror(errno);
-			throw std::runtime_error{std::string{"fdcb: Failed to dup: "}.append(errstring)};
-		}
-		m_old_fd = fd_handle{old_fd};
-
-		if(dup2(m_write_fd.get(), fd) == -1)
-		{
-			auto const errstring = strerror(errno);
-			throw std::runtime_error{std::string{"fdcb: Failed to dup: "}.append(errstring)};
-		}
 	}
 
 	void flush()
@@ -77,9 +118,8 @@ public:
 
 private:
 	std::jthread m_writer;
-	fd_handle m_read_fd;
-	fd_handle m_write_fd;
-	fd_handle m_old_fd;
+	fdcb::pipe m_pipe;
+	fdcb::fd_swap m_fd_swap;
 };
 
 struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* user_context)
@@ -90,7 +130,7 @@ struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* u
 	}
 	catch(std::exception const& error)
 	{
-		error_message = error.what();
+		fdcb::error_message = error.what();
 		return nullptr;
 	}
 }
