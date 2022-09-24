@@ -26,7 +26,7 @@
                             "-g",
                             "-Wall",
                             "-Wextra",
-                            "-O3"
+                            "-O0"
                         ],
                         "iquote": [
                             "."
@@ -56,7 +56,7 @@
                             "-g",
                             "-Wall",
                             "-Wextra",
-                            "-O3"
+                            "-O0"
                         ],
                         "iquote": [
                             "."
@@ -123,6 +123,7 @@
                 ".app.maikerule": "app",
                 ".cpp": "cxx",
                 ".hpp": "cxx",
+                ".h": "cxx",
                 ".lib.maikerule": "lib",
                 ".py": "extension",
                 ".sass": "sass2css",

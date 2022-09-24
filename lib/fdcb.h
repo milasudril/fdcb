@@ -1,3 +1,5 @@
+//@	{"dependencies_extra":[{"ref":"./fdcb.o", "rel":"implementation"}]}
+
 #ifndef FDCB_H
 #define FDCB_H
 
@@ -22,6 +24,8 @@ struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* u
 void fdcb_flush(struct fdcb_context*);
 
 void fdcb_free_context(struct fdcb_context*);
+
+char const* fdcb_get_error_message();
 
 END_C
 
@@ -51,14 +55,19 @@ namespace fdcb
 		static ssize_t call_write(void* user_context, void const* buffer, size_t count)
 		{
 			auto bytes = std::span{reinterpret_cast<std::byte const*>(buffer), count};
-			return write(static_cast<Writer*>(user_context), bytes);
+			return write(*static_cast<Writer*>(user_context), bytes);
 		}
 
 	public:
 		explicit context(int fd, Writer&& cb):
 			m_cb{std::make_unique<Writer>(std::move(cb))},
 			m_context{fdcb_create_context(fd, call_write, m_cb.get())}
-		{}
+		{
+			if(m_context == nullptr)
+			{
+				throw std::runtime_error{fdcb_get_error_message()};
+			}
+		}
 
 		void flush()
 		{

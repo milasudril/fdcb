@@ -62,7 +62,7 @@ namespace
 			}
 			m_replaced_fd_copy = fd_handle{replaced_fd_copy};
 
-			if(dup2(replacing_fd, replaced_fd_copy) == -1)
+			if(dup2(replacing_fd, fd_to_replace) == -1)
 			{
 				auto const errstring = strerror(errno);
 				throw std::runtime_error{std::string{"fdcb: Failed to dup: "}.append(errstring)};
@@ -71,7 +71,10 @@ namespace
 
 		~fd_swap()
 		{
-			dup2(m_replaced_fd_copy.get(), m_replaced_fd);
+			if(dup2(m_replaced_fd_copy.get(), m_replaced_fd) == -1)
+			{
+				abort();
+			}
 		}
 
 	private:
@@ -122,7 +125,7 @@ private:
 	fdcb::fd_swap m_fd_swap;
 };
 
-struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* user_context)
+fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* user_context)
 {
 	try
 	{
@@ -133,6 +136,11 @@ struct fdcb_context* fdcb_create_context(int fd, fdcb_callback callback, void* u
 		fdcb::error_message = error.what();
 		return nullptr;
 	}
+}
+
+char const* fdcb_get_error_message()
+{
+	return fdcb::error_message.c_str();
 }
 
 void fdcb_flush(struct fdcb_context* ctxt)
