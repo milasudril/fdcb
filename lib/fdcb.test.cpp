@@ -21,6 +21,8 @@ int main()
 	{
 		fdcb::context wrapper{STDOUT_FILENO, dummy{}};
 		puts("Hello, World");
+
+		// Must flush stdout, outerwise, there is nothing for the internal thread to read
 		fflush(stdout);
 	}
 	catch(std::exception const& e)
