@@ -24,7 +24,9 @@
                     "config": {
                         "cflags": [
                             "-g",
-                            "-Wall"
+                            "-Wall",
+                            "-Wextra",
+                            "-O3"
                         ],
                         "iquote": [
                             "."
@@ -52,7 +54,9 @@
                         ],
                         "cflags": [
                             "-g",
-                            "-Wall"
+                            "-Wall",
+                            "-Wextra",
+                            "-O3"
                         ],
                         "iquote": [
                             "."
